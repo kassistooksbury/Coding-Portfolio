@@ -4,7 +4,7 @@
   width: 100%;
   height: 100vh;
   touch-action: none;
-  background: black;
+  background: transparent; /* ensure it doesn't add an opaque layer */
 }
 
 canvas {
@@ -13,4 +13,5 @@ canvas {
   left: 0;
   width: 100%;
   height: 100%;
+  pointer-events: none; /* allow clicks/scroll to pass through */
 }
