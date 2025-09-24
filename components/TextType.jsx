@@ -98,22 +98,24 @@ const TextType = ({
 
           setCurrentTextIndex(prev => (prev + 1) % textArray.length);
           setCurrentCharIndex(0);
-          timeout = setTimeout(() => {}, pauseDuration);
         } else {
           timeout = setTimeout(() => {
             setDisplayedText(prev => prev.slice(0, -1));
-          }, deletingSpeed);
+            setCurrentCharIndex(prev => prev - 1);
+          }, getRandomSpeed());
         }
       } else {
         if (currentCharIndex < processedText.length) {
-          timeout = setTimeout(
-            () => {
-              setDisplayedText(prev => prev + processedText[currentCharIndex]);
-              setCurrentCharIndex(prev => prev + 1);
-            },
-            variableSpeed ? getRandomSpeed() : typingSpeed
-          );
-        } else if (textArray.length > 1) {
+          timeout = setTimeout(() => {
+            setDisplayedText(prev => prev + processedText[currentCharIndex]);
+            setCurrentCharIndex(prev => prev + 1);
+          }, getRandomSpeed());
+        } else if (!loop && textArray.length === 1) {
+          // Call onSentenceComplete after typing a single, non-looping string
+          if (onSentenceComplete) {
+            onSentenceComplete(textArray[currentTextIndex], currentTextIndex);
+          }
+        } else if (!isDeleting && loop) {
           timeout = setTimeout(() => {
             setIsDeleting(true);
           }, pauseDuration);

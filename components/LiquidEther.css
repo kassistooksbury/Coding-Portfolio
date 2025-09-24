@@ -1,17 +1,20 @@
 .liquid-ether-container {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  height: 100vh;
-  touch-action: none;
-  background: transparent; /* ensure it doesn't add an opaque layer */
-}
-
-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 100%;
   height: 100%;
-  pointer-events: none; /* allow clicks/scroll to pass through */
+  position: relative;
+  overflow: hidden;
+  transition: background-color 0.5s ease;
+}
+
+.liquid-ether-container.beyond {
+  background-color: #000;
+}
+
+.liquid-ether-container canvas {
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.liquid-ether-container.beyond canvas {
+  opacity: 0;
 }

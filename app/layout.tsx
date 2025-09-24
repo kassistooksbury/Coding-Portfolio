@@ -1,10 +1,16 @@
 import type { Metadata } from "next";
-import { Inter } from 'next/font/google';
+import { Inter, Dela_Gothic_One } from 'next/font/google';
 import "./globals.css";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+const delaGothic = Dela_Gothic_One({
+  weight: '400',
+  subsets: ["latin"],
+  variable: "--font-dela-gothic",
 });
 
 export const metadata: Metadata = {
@@ -19,7 +25,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} font-sans antialiased bg-black overflow-x-hidden min-h-screen`}>
+      <body className={`${inter.variable} ${delaGothic.variable} font-sans antialiased bg-black overflow-x-hidden min-h-screen`}>
         {children}
       </body>
     </html>

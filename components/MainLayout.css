@@ -1,0 +1,28 @@
+.main-layout {
+  // ...existing code...
+}
+
+/* Section-specific styles */
+#home {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#about, #projects, #contact {
+  min-height: 100vh;
+  padding-top: 80px; /* Matches the scroll offset */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Ensure content containers are properly spaced */
+.container {
+  width: 90%;
+  max-width: 1200px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}

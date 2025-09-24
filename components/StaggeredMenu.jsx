@@ -1,7 +1,12 @@
 'use client';
 import React, { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { gsap } from 'gsap';
+import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import './StaggeredMenu.css';
+
+// Register GSAP plugins
+gsap.registerPlugin(ScrollToPlugin, ScrollTrigger);
 
 export const StaggeredMenu = ({
   position = 'right',
@@ -297,25 +302,6 @@ export const StaggeredMenu = ({
     });
   }, []);
 
-  const handleMenuItemClick = useCallback((e) => {
-    const href = e.currentTarget.getAttribute('href');
-    if (href && href.startsWith('#')) {
-      e.preventDefault();
-      const element = document.querySelector(href);
-      if (element) {
-        const yOffset = -100; // Adjust this value to account for any fixed headers
-        const y = element.getBoundingClientRect().top + window.pageYOffset + yOffset;
-        window.scrollTo({ top: y, behavior: 'smooth' });
-        // Close menu after clicking
-        if (openRef.current) {
-          setTimeout(() => {
-            toggleMenu();
-          }, 300);
-        }
-      }
-    }
-  }, []);
-
   const toggleMenu = useCallback(() => {
     const target = !openRef.current;
     openRef.current = target;
@@ -332,6 +318,33 @@ export const StaggeredMenu = ({
     animateText(target);
   }, [playOpen, playClose, animateIcon, animateColor, animateText, onMenuOpen, onMenuClose]);
 
+  const handleMenuItemClick = useCallback((e) => {
+    const href = e.currentTarget.getAttribute('href');
+    if (href && href.startsWith('#')) {
+      e.preventDefault();
+      const targetId = href.substring(1);
+      const targetElement = document.getElementById(targetId);
+
+      if (targetElement) {
+        // Close menu if open
+        if (openRef.current) {
+          toggleMenu();
+        }
+
+        // Scroll immediately, no delay
+        const offset = 0; // Set to 0 for all sections, or adjust if you have a fixed header
+        gsap.to(window, {
+          duration: 0.7, // Smooth scroll
+          scrollTo: {
+            y: targetElement,
+            offsetY: offset,
+          },
+          ease: "power3.inOut"
+        });
+      }
+    }
+  }, [toggleMenu]);
+
   return (
     <div
       className={(className ? className + ' ' : '') + 'staggered-menu-wrapper'}
@@ -347,9 +360,12 @@ export const StaggeredMenu = ({
             const mid = Math.floor(arr.length / 2);
             arr.splice(mid, 1);
           }
-          return arr.map((c, i) => <div key={i} className="sm-prelayer" style={{ background: c }} />);
+          return arr.map((c, i) => (
+            <div key={i} className="sm-prelayer" style={{ background: c }} />
+          ));
         })()}
       </div>
+
       <header className="staggered-menu-header" aria-label="Main navigation header">
         <div className="sm-logo" aria-label="Logo">
           <img
@@ -390,16 +406,16 @@ export const StaggeredMenu = ({
         <div className="sm-panel-inner">
           <ul className="sm-panel-list" role="list" data-numbering={displayItemNumbering || undefined}>
             {items && items.length ? (
-              items.map((it, idx) => (
-                <li className="sm-panel-itemWrap" key={it.label + idx}>
+              items.map((item, idx) => (
+                <li className="sm-panel-itemWrap" key={item.label + idx}>
                   <a
                     className="sm-panel-item"
-                    href={it.link}
-                    aria-label={it.ariaLabel}
+                    href={item.link}
+                    aria-label={item.ariaLabel}
                     data-index={idx + 1}
                     onClick={handleMenuItemClick}
                   >
-                    <span className="sm-panel-itemLabel">{it.label}</span>
+                    <span className="sm-panel-itemLabel">{item.label}</span>
                   </a>
                 </li>
               ))
@@ -415,10 +431,10 @@ export const StaggeredMenu = ({
             <div className="sm-socials" aria-label="Social links">
               <h3 className="sm-socials-title">Socials</h3>
               <ul className="sm-socials-list" role="list">
-                {socialItems.map((s, i) => (
-                  <li key={s.label + i} className="sm-socials-item">
-                    <a href={s.link} target="_blank" rel="noopener noreferrer" className="sm-socials-link">
-                      {s.label}
+                {socialItems.map((social, i) => (
+                  <li key={social.label + i} className="sm-socials-item">
+                    <a href={social.link} target="_blank" rel="noopener noreferrer" className="sm-socials-link">
+                      {social.label}
                     </a>
                   </li>
                 ))}
@@ -430,5 +446,3 @@ export const StaggeredMenu = ({
     </div>
   );
 };
-
-export default StaggeredMenu;
