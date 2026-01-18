@@ -16,7 +16,7 @@ export const StaggeredMenu = ({
   displaySocials = true,
   displayItemNumbering = true,
   className,
-  logoUrl = '/vercel.svg',
+  logoUrl = '/resume.pdf',
   menuButtonColor = '#fff',
   openMenuButtonColor = '#fff',
   accentColor = '#5227FF',
@@ -24,6 +24,14 @@ export const StaggeredMenu = ({
   onMenuOpen,
   onMenuClose
 }) => {
+  // Debug log to help diagnose why the menu might be empty in the browser
+  React.useEffect(() => {
+    try {
+      // eslint-disable-next-line no-console
+      console.log('StaggeredMenu mounted — items:', items, 'socialItems:', socialItems);
+    } catch (e) {}
+  }, [items, socialItems]);
+
   const [open, setOpen] = useState(false);
   const openRef = useRef(false);
   const panelRef = useRef(null);
@@ -320,28 +328,14 @@ export const StaggeredMenu = ({
 
   const handleMenuItemClick = useCallback((e) => {
     const href = e.currentTarget.getAttribute('href');
+    // Let native anchor scrolling handle in-page hash links.
+    // GSAP ScrollTo can cause scroll-jank/temporary lock on first interaction
+    // (especially while ScrollTrigger is initializing).
     if (href && href.startsWith('#')) {
-      e.preventDefault();
-      const targetId = href.substring(1);
-      const targetElement = document.getElementById(targetId);
-
-      if (targetElement) {
-        // Close menu if open
-        if (openRef.current) {
-          toggleMenu();
-        }
-
-        // Scroll immediately, no delay
-        const offset = 0; // Set to 0 for all sections, or adjust if you have a fixed header
-        gsap.to(window, {
-          duration: 0.7, // Smooth scroll
-          scrollTo: {
-            y: targetElement,
-            offsetY: offset,
-          },
-          ease: "power3.inOut"
-        });
+      if (openRef.current) {
+        toggleMenu();
       }
+      return;
     }
   }, [toggleMenu]);
 
@@ -352,6 +346,16 @@ export const StaggeredMenu = ({
       data-position={position}
       data-open={open || undefined}
     >
+      {/* Dimming backdrop that appears when menu is open */}
+      <div
+        className="sm-backdrop"
+        role="button"
+        aria-hidden={!open}
+        onClick={() => {
+          if (openRef.current) toggleMenu();
+        }}
+      />
+
       <div ref={preLayersRef} className="sm-prelayers" aria-hidden="true">
         {(() => {
           const raw = colors && colors.length ? colors.slice(0, 4) : ['#1e1e22', '#35353c'];
@@ -367,16 +371,15 @@ export const StaggeredMenu = ({
       </div>
 
       <header className="staggered-menu-header" aria-label="Main navigation header">
-        <div className="sm-logo" aria-label="Logo">
-          <img
-            src={logoUrl}
-            alt="Logo"
-            className="sm-logo-img"
-            draggable={false}
-            width={110}
-            height={24}
-          />
-        </div>
+        <a
+          className="sm-logo sm-resume"
+          href={logoUrl || '/resume.pdf'}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="Open resume"
+        >
+          Resume
+        </a>
         <button
           ref={toggleBtnRef}
           className="sm-toggle"
@@ -446,3 +449,5 @@ export const StaggeredMenu = ({
     </div>
   );
 };
+
+export default StaggeredMenu;

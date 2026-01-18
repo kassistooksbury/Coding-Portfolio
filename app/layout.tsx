@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Inter, Dela_Gothic_One } from 'next/font/google';
+import { Inter, Dela_Gothic_One, Space_Grotesk } from 'next/font/google';
 import "./globals.css";
+import ClientHydrate from '../components/ClientHydrate';
 
 const inter = Inter({
   subsets: ["latin"],
@@ -11,6 +12,12 @@ const delaGothic = Dela_Gothic_One({
   weight: '400',
   subsets: ["latin"],
   variable: "--font-dela-gothic",
+});
+
+const spaceGrotesk = Space_Grotesk({
+  weight: ['300','400','500','600','700'],
+  subsets: ['latin'],
+  variable: '--font-space-grotesk',
 });
 
 export const metadata: Metadata = {
@@ -25,7 +32,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${inter.variable} ${delaGothic.variable} font-sans antialiased bg-black overflow-x-hidden min-h-screen`}>
+      <body className={`hydrating ${inter.variable} ${delaGothic.variable} ${spaceGrotesk.variable} font-sans antialiased`}>
+        <ClientHydrate />
         {children}
       </body>
     </html>

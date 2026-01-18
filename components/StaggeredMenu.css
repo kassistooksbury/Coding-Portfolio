@@ -1,5 +1,8 @@
 .staggered-menu-wrapper {
-  position: relative;
+  /* This wrapper should not create a full-page hitbox that can block scrolling.
+     Keep it fixed as a UI overlay and let the page underneath handle scrolling. */
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
   z-index: 100;
@@ -302,6 +305,50 @@
   pointer-events: none;
   user-select: none;
   opacity: var(--sm-num-opacity, 0);
+}
+
+/* Backdrop that dims the page when the menu is open */
+.sm-backdrop {
+  position: fixed;
+  inset: 0; /* top:0; right:0; bottom:0; left:0 */
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  z-index: 80; /* below prelayers (85), panel (90) and header (100) */
+  pointer-events: none;
+  touch-action: auto;
+}
+
+/* When menu wrapper has data-open, show the backdrop and allow clicks */
+.staggered-menu-wrapper[data-open] .sm-backdrop {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.sm-resume {
+  pointer-events: auto;
+  text-decoration: none;
+  color: #e9e9ef;
+  /* Match .sm-toggle sizing/typography */
+  font-weight: 500;
+  line-height: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sm-resume:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+}
+
+.sm-resume:focus-visible {
+  outline: 2px solid rgba(255, 255, 255, 0.5);
+  outline-offset: 4px;
 }
 
 @media (max-width: 1024px) {

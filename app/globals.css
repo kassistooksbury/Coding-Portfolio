@@ -1,11 +1,11 @@
 @import "tailwindcss";
-@import "tw-animate-css";
 @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
-
-@custom-variant dark (&:is(.dark *));
 
 :root {
   --background: #000000;
+  --foreground-rgb: 255, 255, 255;
+  --background-start-rgb: 0, 0, 0;
+  --background-end-rgb: 0, 0, 0;
 }
 
 @layer base {
@@ -26,6 +26,27 @@ body {
   color: #ffffff;
   letter-spacing: -0.02em;
   line-height: 1.65;
+  min-height: 100vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- smooth / stable scrolling --- */
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem; /* fixed nav offset for anchor links */
+}
+
+body {
+  /* Allow normal overscroll/scroll chaining; disabling this can cause trackpad scroll to feel stuck */
+  overscroll-behavior-y: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
@@ -39,7 +60,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .section-title {
-  @apply text-3xl md:text-4xl lg:text-5xl font-light tracking-tight;
+  @apply text-2xl md:text-3xl lg:text-4xl font-light tracking-tight;
   letter-spacing: -0.03em;
 }
 
@@ -50,7 +71,7 @@ h1, h2, h3, h4, h5, h6 {
 
 .body-text {
   @apply text-gray-300 leading-relaxed tracking-normal;
-  font-size: 1rem;
+  font-size: 0.95rem;
   letter-spacing: -0.01em;
   line-height: 1.75;
 }
@@ -63,143 +84,13 @@ h1, h2, h3, h4, h5, h6 {
   @apply hover:bg-white/10 hover:scale-[1.02] transition-all duration-300;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-  --color-sidebar-ring: var(--sidebar-ring);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar: var(--sidebar);
-  --color-chart-5: var(--chart-5);
-  --color-chart-4: var(--chart-4);
-  --color-chart-3: var(--chart-3);
-  --color-chart-2: var(--chart-2);
-  --color-chart-1: var(--chart-1);
-  --color-ring: var(--ring);
-  --color-input: var(--input);
-  --color-border: var(--border);
-  --color-destructive: var(--destructive);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-accent: var(--accent);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-muted: var(--muted);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-secondary: var(--secondary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-primary: var(--primary);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-popover: var(--popover);
-  --color-card-foreground: var(--card-foreground);
-  --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-}
-
-:root {
-  --radius: 0.625rem;
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-  --foreground-rgb: 255, 255, 255;
-  --background-start-rgb: 0, 0, 0;
-  --background-end-rgb: 0, 0, 0;
-}
-
-/* Ensure background stays fixed */
-body {
-  min-height: 100vh;
-  overflow-x: hidden;
-  color: rgb(var(--foreground-rgb));
-}
 
 /* Smooth section transitions */
 section {
   transition: background-color 0.3s ease;
+  /* make sure sections are positioned in the normal flow and sit below the hero */
+  position: relative;
+  z-index: 1;
 }
 
 /* Additional section styles */
@@ -221,23 +112,204 @@ section {
   z-index: 1;
 }
 
+/* Hero / large heading block - responsive and centered */
 .text-block {
-    position: absolute;
-    padding-top: 350px;
-    padding-left: 100px;
-    padding-bottom: 3000px;
-    top: 0;
-    left: 0;
-    z-index: 10;
-    pointer-events: none;
-    user-select: none;
-    mix-blend-mode: normal;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    font-size: 200%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  /* a bit more vertical space for the hero */
+  padding: 5.5rem 1.25rem;
+  /* Ensure the hero sits above other sections during initial load/hydration */
+  z-index: 50;
+  pointer-events: none;
+  user-select: none;
+  mix-blend-mode: normal;
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+}
 
-}
 .subheader-text {
-    padding-top: 400px;
-    padding-left: 100px;
+  margin-top: 1rem;
+  padding-left: 0;
 }
+
+/* Ensure content isn't hidden beneath fixed navigation */
+main {
+  padding-top: 4.5rem; /* adjust if your nav is taller */
+}
+
+/* Normalize spacing for sections for coherent vertical rhythm */
+section {
+  padding: 4.5rem 1.25rem;
+}
+
+/* Reusable centered container to standardize content width */
+.container {
+  width: 100%;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+/* Large responsive headings used site-wide */
+.display-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 700;
+  line-height: 1;
+  /* clamp(min, preferred, max) keeps sizes reasonable on all screens */
+  /* slightly smaller: ~32px to 104px */
+  font-size: clamp(2rem, 5.5vw, 6.5rem);
+  margin-bottom: 0.5rem;
+  text-align: center;
+  /* Hide section headings by default to avoid flashes prior to client hydrate */
+  visibility: hidden;
+}
+
+/* After client hydration reveal headings */
+body.is-hydrated .display-title {
+  visibility: visible;
+}
+
+/* Remove pre-hydration hiding of .display-title so client TextType is visible immediately.
+   The server fallback remains handled via opacity overlay rules later. */
+
+/* Background wrapper states for the liquid background */
+.bg-wrapper {
+  /* Force the wrapper to always be fixed to the viewport and span full viewport width/height */
+  position: fixed !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: 0 !important;
+  width: 100vw !important;
+  /* Keep the background pinned to one viewport height so it doesn't scale with text */
+  height: 100vh !important;
+  /* Avoid strict containment on a full-viewport fixed layer; it can cause scroll glitches */
+  contain: none !important;
+  /* NOTE: do not set overflow:hidden on the full-viewport fixed wrapper.
+     It can interfere with scrolling on some browsers by creating a scroll containment context. */
+  overflow: visible !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  /* Animate transform/opacity to avoid reflow that causes layout shifts */
+  transition: opacity 300ms ease;
+  will-change: opacity;
+  /* Prevent any transforms from affecting the background position */
+  backface-visibility: hidden;
+  /* Avoid forcing a separate compositing layer here; it can trigger wheel/touch jank on some setups */
+  transform: none !important;
+
+  /* Keep fixed full-viewport size; visual shrinking uses transform so document layout doesn't move */
+}
+
+.bg-wrapper.bg-full {
+  transform: none !important;
+}
+
+.bg-wrapper.bg-shrunk {
+  /* Removed scale so the background remains the same size. If you need a subtle effect, use opacity instead. */
+  transform: none !important;
+  transform-origin: top !important;
+  /* Slight opacity change can hint at state without resizing */
+  opacity: 0.98;
+}
+
+/* Optional mask to darken lower edge when background shrinks (keeps content legible) */
+.bg-wrapper .bg-mask {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 6rem;
+  background: linear-gradient(to bottom, rgba(0,0,0,0), rgba(0,0,0,0.65));
+  pointer-events: none;
+}
+
+/* When the app hasn't been 'entered' yet, hide interactive chrome (nav) and prevent scroll */
+.app-locked nav {
+  opacity: 0;
+  transform: translateY(-8px);
+  pointer-events: none;
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+/* Enter overlay shown in the hero before the user clicks/presses Enter */
+.enter-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 3.5rem;
+  pointer-events: none; /* let the hero container receive clicks */
+  z-index: 20;
+}
+
+.enter-text {
+  pointer-events: auto; /* allow keyboard users to activate via the hero focus */
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  border-radius: 999px;
+  font-weight: 600;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.6);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+/* Prevent flashes on initial server render: while hydrating, hide off-canvas menu, prelayers, backdrop, and section headings until client hydration completes */
+body.hydrating .staggered-menu-panel,
+body.hydrating .sm-prelayers,
+body.hydrating .sm-backdrop,
+body.hydrating .sm-prelayer {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* Keep section headings in the DOM during hydration to prevent layout shifts; hide visually only. */
+/* Note: do not hide .display-title during body.hydrating so the hero typing animation can be visible immediately. */
+
+/* Keep the hero heading visible on the initial server paint */
+.text-block .display-title {
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* After client hydration reveal headings and UI */
+body.is-hydrated .staggered-menu-panel,
+body.is-hydrated .sm-prelayers,
+body.is-hydrated .sm-prelayer,
+body.is-hydrated .display-title {
+  display: initial !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  pointer-events: auto !important;
+}
+
+/* Hide the server-rendered hero fallback after client hydration to avoid duplicate text */
+body.is-hydrated .server-hero-fallback {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+}
+
+/* Performance and smooth scrolling hints */
+html, body {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prefer hardware acceleration for animated elements to reduce jank */
+.experience-item,
+.skill-icon-item,
+.sm-prelayer,
+.sm-panel-inner > * {
+  will-change: transform, opacity;
+}
+
+/* Removed the pre-hydration hide rule so content is visible immediately. Animations and reveals are
+   gated by ClientHydrate and GSAP. */

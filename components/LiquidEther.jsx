@@ -23,7 +23,14 @@ export default function LiquidEther({
   autoIntensity = 2.2,
   takeoverDuration = 0.25,
   autoResumeDelay = 1000,
-  autoRampDuration = 0.6
+  autoRampDuration = 0.6,
+  // Optional: force a fixed renderer/container pixel size so layout changes won't affect it
+  fixedWidthPx = null,
+  fixedHeightPx = null,
+  // If true, the canvas will accept pointer events during interaction; default false prevents canvas from intercepting scroll/pan
+  allowPointerInteraction = false,
+  // If provided, called when WebGL renderer/context cannot be created.
+  onWebglError = null,
 }) {
   const mountRef = useRef(null);
   const webglRef = useRef(null);
@@ -32,6 +39,8 @@ export default function LiquidEther({
   const intersectionObserverRef = useRef(null);
   const isVisibleRef = useRef(true);
   const resizeRafRef = useRef(null);
+  // debounce handle for pausing/resuming rendering during scroll
+  const scrollTimeoutRef = useRef(null);
 
   useEffect(() => {
     if (!mountRef.current) return;
@@ -84,24 +93,78 @@ export default function LiquidEther({
         this.container = null;
         this.renderer = null;
         this.clock = null;
+        this._fixed = (typeof fixedWidthPx === 'number' && typeof fixedHeightPx === 'number');
+        this._fixedW = fixedWidthPx;
+        this._fixedH = fixedHeightPx;
       }
       init(container) {
         this.container = container;
         this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        this.resize();
-        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        this.renderer.autoClear = false;
-        this.renderer.setClearColor(new THREE.Color(0x000000), 0);
-        this.renderer.setPixelRatio(this.pixelRatio);
-        this.renderer.setSize(this.width, this.height);
-        this.renderer.domElement.style.width = '100%';
-        this.renderer.domElement.style.height = '100%';
+        // If fixed pixel size provided, use that instead of measuring the container
+        if (this._fixed) {
+          this.width = Math.max(1, Math.floor(this._fixedW));
+          this.height = Math.max(1, Math.floor(this._fixedH));
+          this.aspect = this.width / this.height;
+        } else {
+          this.resize();
+        }
+        // Try to create a real WebGL renderer. If creation fails (e.g. browser/host
+        // environment doesn't allow WebGL), fall back to a minimal mock renderer
+        // so the component degrades gracefully instead of throwing an exception.
+        try {
+          this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+          this._webglAvailable = true;
+          this.renderer.autoClear = false;
+          this.renderer.setClearColor(new THREE.Color(0x000000), 0);
+          this.renderer.setPixelRatio(this.pixelRatio);
+          this.renderer.setSize(this.width, this.height);
+        } catch (e) {
+          console.warn('WebGL not available, falling back to mock renderer:', e);
+          // Notify parent so it can switch to a Canvas2D fallback.
+          try {
+            if (typeof onWebglError === 'function') onWebglError(e);
+          } catch {}
+
+          const fallback = document.createElement('div');
+          fallback.style.width = this._fixed ? this.width + 'px' : '100%';
+          fallback.style.height = this._fixed ? this.height + 'px' : '100%';
+          fallback.style.display = 'block';
+          this.renderer = {
+            domElement: fallback,
+            autoClear: false,
+            setPixelRatio: () => {},
+            setSize: () => {},
+            setClearColor: () => {},
+            setRenderTarget: () => {},
+            render: () => {},
+            dispose: () => {},
+          };
+          this._webglAvailable = false;
+        }
+        // If fixed size, set DOM element to fixed pixel dimensions to avoid percentage inheritance
+        if (this._fixed) {
+          this.renderer.domElement.style.width = this.width + 'px';
+          this.renderer.domElement.style.height = this.height + 'px';
+        } else {
+          this.renderer.domElement.style.width = '100%';
+          this.renderer.domElement.style.height = '100%';
+        }
         this.renderer.domElement.style.display = 'block';
+        // Make the canvas non-blocking for pointer events so underlying UI remains interactive
+        this.renderer.domElement.style.pointerEvents = 'none';
         this.clock = new THREE.Clock();
         this.clock.start();
       }
       resize() {
         if (!this.container) return;
+        // If fixed pixel size is set, do not recompute from the DOM - keep fixed values
+        if (this._fixed) {
+          if (this.renderer) this.renderer.setSize(this._fixedW, this._fixedH, false);
+          this.width = this._fixedW;
+          this.height = this._fixedH;
+          this.aspect = this.width / this.height;
+          return;
+        }
         const rect = this.container.getBoundingClientRect();
         this.width = Math.max(1, Math.floor(rect.width));
         this.height = Math.max(1, Math.floor(rect.height));
@@ -123,6 +186,10 @@ export default function LiquidEther({
         this.diff = new THREE.Vector2();
         this.timer = null;
         this.container = null;
+        // pending raw client coordinates (defer DOM rect reads to RAF/update)
+        this._pending = null;
+        // pending takeover raw coords (when auto driver hands off to user)
+        this._takeoverPending = null;
         this._onMouseMove = this.onDocumentMouseMove.bind(this);
         this._onTouchStart = this.onDocumentTouchStart.bind(this);
         this._onTouchMove = this.onDocumentTouchMove.bind(this);
@@ -138,33 +205,48 @@ export default function LiquidEther({
         this.takeoverDuration = 0.25;
         this.takeoverFrom = new THREE.Vector2();
         this.takeoverTo = new THREE.Vector2();
+        // pointer-events toggle timeout handle
+        this._pointerEventsTimeout = null;
         this.onInteract = null;
+        this._allowPointer = allowPointerInteraction;
       }
       init(container) {
         this.container = container;
-        container.addEventListener('mousemove', this._onMouseMove, false);
-        container.addEventListener('touchstart', this._onTouchStart, false);
-        container.addEventListener('touchmove', this._onTouchMove, false);
+        // Attach pointer events to document so the canvas can be pointer-events:none
+        // (the canvas won't block clicks or hovers on page content), but the
+        // simulation still receives global pointer input.
+        document.addEventListener('mousemove', this._onMouseMove, false);
+        // Use passive listeners for touch events to avoid blocking scroll on mobile
+        document.addEventListener('touchstart', this._onTouchStart, { passive: true });
+        document.addEventListener('touchmove', this._onTouchMove, { passive: true });
         container.addEventListener('mouseenter', this._onMouseEnter, false);
         container.addEventListener('mouseleave', this._onMouseLeave, false);
-        container.addEventListener('touchend', this._onTouchEnd, false);
+        // touchend doesn't affect scroll; use passive listener for consistency
+        container.addEventListener('touchend', this._onTouchEnd, { passive: true });
       }
       dispose() {
         if (!this.container) return;
-        this.container.removeEventListener('mousemove', this._onMouseMove, false);
-        this.container.removeEventListener('touchstart', this._onTouchStart, false);
-        this.container.removeEventListener('touchmove', this._onTouchMove, false);
+        // Remove listeners attached to document and container
+        document.removeEventListener('mousemove', this._onMouseMove, false);
+        document.removeEventListener('touchstart', this._onTouchStart, { passive: true });
+        document.removeEventListener('touchmove', this._onTouchMove, { passive: true });
+        // Remove container listeners
         this.container.removeEventListener('mouseenter', this._onMouseEnter, false);
         this.container.removeEventListener('mouseleave', this._onMouseLeave, false);
-        this.container.removeEventListener('touchend', this._onTouchEnd, false);
+        this.container.removeEventListener('touchend', this._onTouchEnd, { passive: true });
+        if (this._pointerEventsTimeout) {
+          clearTimeout(this._pointerEventsTimeout);
+          this._pointerEventsTimeout = null;
+        }
       }
       setCoords(x, y) {
         if (!this.container) return;
         if (this.timer) clearTimeout(this.timer);
-        const rect = this.container.getBoundingClientRect();
-        const nx = (x - rect.left) / rect.width;
-        const ny = (y - rect.top) / rect.height;
-        this.coords.set(nx * 2 - 1, -(ny * 2 - 1));
+        // Defer DOM reads (getBoundingClientRect) to the RAF-driven update loop
+        // by storing raw client coordinates in a pending buffer. This avoids
+        // forcing layout on high-frequency mouse/touch events and improves scroll
+        // smoothness on mobile.
+        this._pending = { x, y };
         this.mouseMoved = true;
         this.timer = setTimeout(() => {
           this.mouseMoved = false;
@@ -174,14 +256,32 @@ export default function LiquidEther({
         this.coords.set(nx, ny);
         this.mouseMoved = true;
       }
+      // Process any pending raw coordinates; called from update() once per frame
+      _flushPendingCoords() {
+        if (!this._pending || !this.container) return;
+        const { x, y } = this._pending;
+        this._pending = null;
+        const rect = this.container.getBoundingClientRect();
+        const nx = (x - rect.left) / rect.width;
+        const ny = (y - rect.top) / rect.height;
+        this.coords.set(nx * 2 - 1, -(ny * 2 - 1));
+      }
       onDocumentMouseMove(event) {
         if (this.onInteract) this.onInteract();
+        // ensure canvas accepts pointer events while actively interacting
+        if (this._allowPointer && Common && Common.renderer && Common.renderer.domElement) {
+          Common.renderer.domElement.style.pointerEvents = 'auto';
+          if (this._pointerEventsTimeout) {
+            clearTimeout(this._pointerEventsTimeout);
+            this._pointerEventsTimeout = null;
+          }
+        }
         if (this.isAutoActive && !this.hasUserControl && !this.takeoverActive) {
-          const rect = this.container.getBoundingClientRect();
-          const nx = (event.clientX - rect.left) / rect.width;
-          const ny = (event.clientY - rect.top) / rect.height;
+          // Defer takeover target normalization to the RAF loop to avoid layout
+          // reads during mousemove. Store raw client coords and mark takeover
+          // active; update() will compute normalized takeoverTo.
           this.takeoverFrom.copy(this.coords);
-          this.takeoverTo.set(nx * 2 - 1, -(ny * 2 - 1));
+          this._takeoverPending = { x: event.clientX, y: event.clientY };
           this.takeoverStartTime = performance.now();
           this.takeoverActive = true;
           this.hasUserControl = true;
@@ -195,6 +295,14 @@ export default function LiquidEther({
         if (event.touches.length === 1) {
           const t = event.touches[0];
           if (this.onInteract) this.onInteract();
+          // enable pointer events on touch devices while interacting
+          if (this._allowPointer && Common && Common.renderer && Common.renderer.domElement) {
+            Common.renderer.domElement.style.pointerEvents = 'auto';
+            if (this._pointerEventsTimeout) {
+              clearTimeout(this._pointerEventsTimeout);
+              this._pointerEventsTimeout = null;
+            }
+          }
           this.setCoords(t.pageX, t.pageY);
           this.hasUserControl = true;
         }
@@ -208,14 +316,57 @@ export default function LiquidEther({
       }
       onTouchEnd() {
         this.isHoverInside = false;
+        // disable pointer events shortly after touch ends so underlying UI is reachable
+        if (this._allowPointer && Common && Common.renderer && Common.renderer.domElement) {
+          if (this._pointerEventsTimeout) clearTimeout(this._pointerEventsTimeout);
+          this._pointerEventsTimeout = setTimeout(() => {
+            if (Common && Common.renderer && Common.renderer.domElement) {
+              Common.renderer.domElement.style.pointerEvents = 'none';
+            }
+            this._pointerEventsTimeout = null;
+          }, 300);
+        }
       }
       onMouseEnter() {
         this.isHoverInside = true;
+        // enable canvas pointer events when pointer enters the container
+        if (this._allowPointer && Common && Common.renderer && Common.renderer.domElement) {
+          if (this._pointerEventsTimeout) {
+            clearTimeout(this._pointerEventsTimeout);
+            this._pointerEventsTimeout = null;
+          }
+          Common.renderer.domElement.style.pointerEvents = 'auto';
+        }
       }
       onMouseLeave() {
         this.isHoverInside = false;
+        // disable canvas pointer events shortly after leaving so clicks pass through
+        if (this._allowPointer && Common && Common.renderer && Common.renderer.domElement) {
+          if (this._pointerEventsTimeout) clearTimeout(this._pointerEventsTimeout);
+          this._pointerEventsTimeout = setTimeout(() => {
+            if (Common && Common.renderer && Common.renderer.domElement) {
+              Common.renderer.domElement.style.pointerEvents = 'none';
+            }
+            this._pointerEventsTimeout = null;
+          }, 300);
+        }
       }
       update() {
+        // Flush any pending pointer coords once per frame to avoid layout thrash
+        this._flushPendingCoords();
+
+        // If a takeover was initiated from mousemove, compute normalized target now
+        if (this.takeoverActive && this._takeoverPending) {
+          const { x, y } = this._takeoverPending;
+          this._takeoverPending = null;
+          if (this.container) {
+            const rect = this.container.getBoundingClientRect();
+            const nx = (x - rect.left) / rect.width;
+            const ny = (y - rect.top) / rect.height;
+            this.takeoverTo.set(nx * 2 - 1, -(ny * 2 - 1));
+          }
+        }
+
         if (this.takeoverActive) {
           const t = (performance.now() - this.takeoverStartTime) / (this.takeoverDuration * 1000);
           if (t >= 1) {
@@ -747,6 +898,14 @@ export default function LiquidEther({
         this.init();
       }
       init() {
+        // If WebGL isn't available (we fell back to a mock renderer), skip
+        // creating float render targets / shader passes which require a real
+        // GL context. This prevents runtime errors in environments without
+        // WebGL support.
+        if (!Common._webglAvailable) {
+          console.warn('Simulation initialization skipped: WebGL not available');
+          return;
+        }
         this.calcSize();
         this.createAllFBO();
         this.createShaderPass();
@@ -866,9 +1025,16 @@ export default function LiquidEther({
         this.init();
       }
       init() {
-        this.simulation = new Simulation();
         this.scene = new THREE.Scene();
         this.camera = new THREE.Camera();
+        // If WebGL isn't available, avoid creating the simulation and shader
+        // materials that require a GL context. The output will be a no-op.
+        if (!Common._webglAvailable) {
+          this.simulation = null;
+          this.output = null;
+          return;
+        }
+        this.simulation = new Simulation();
         this.output = new THREE.Mesh(
           new THREE.PlaneGeometry(2, 2),
           new THREE.RawShaderMaterial({
@@ -890,14 +1056,15 @@ export default function LiquidEther({
         this.scene.add(mesh);
       }
       resize() {
-        this.simulation.resize();
+        if (this.simulation && typeof this.simulation.resize === 'function') this.simulation.resize();
       }
       render() {
+        if (!Common._webglAvailable) return;
         Common.renderer.setRenderTarget(null);
         Common.renderer.render(this.scene, this.camera);
       }
       update() {
-        this.simulation.update();
+        if (this.simulation && typeof this.simulation.update === 'function') this.simulation.update();
         this.render();
       }
     }
@@ -906,6 +1073,10 @@ export default function LiquidEther({
       constructor(props) {
         this.props = props;
         Common.init(props.$wrapper);
+        // Ensure canvas starts with pointer-events none so it doesn't block scrolling
+        if (Common && Common.renderer && Common.renderer.domElement) {
+          Common.renderer.domElement.style.pointerEvents = 'none';
+        }
         Mouse.init(props.$wrapper);
         Mouse.autoIntensity = props.autoIntensity;
         Mouse.takeoverDuration = props.takeoverDuration;
@@ -934,6 +1105,9 @@ export default function LiquidEther({
         };
         document.addEventListener('visibilitychange', this._onVisibility);
         this.running = false;
+        // throttling state: 0 means uncapped (use rAF), >0 is target FPS when throttled
+        this.targetFPS = 0;
+        this._lastRenderTime = 0;
       }
       init() {
         this.props.$wrapper.prepend(Common.renderer.domElement);
@@ -944,6 +1118,8 @@ export default function LiquidEther({
         this.output.resize();
       }
       render() {
+        // If WebGL isn't available (mock renderer), do nothing.
+        if (!Common._webglAvailable) return;
         if (this.autoDriver) this.autoDriver.update();
         Mouse.update();
         Common.update();
@@ -951,8 +1127,24 @@ export default function LiquidEther({
       }
       loop() {
         if (!this.running) return; // safety
-        this.render();
+        const now = performance.now();
+        if (this.targetFPS > 0) {
+          const interval = 1000 / this.targetFPS;
+          if (now - this._lastRenderTime >= interval) {
+            this.render();
+            this._lastRenderTime = now;
+          }
+        } else {
+          this.render();
+          this._lastRenderTime = now;
+        }
         rafRef.current = requestAnimationFrame(this._loop);
+      }
+      // Public API to set a target FPS (0 = uncapped)
+      setThrottle(fps) {
+        this.targetFPS = Math.max(0, Math.floor(fps || 0));
+        // reset last render time so the next frame renders immediately
+        this._lastRenderTime = performance.now();
       }
       start() {
         if (this.running) return;
@@ -983,8 +1175,11 @@ export default function LiquidEther({
     }
 
     const container = mountRef.current;
-    container.style.position = container.style.position || 'relative';
-    container.style.overflow = container.style.overflow || 'hidden';
+    // Do not force overflow/position on the mount container; this can accidentally
+    // prevent document scrolling depending on where the component is mounted.
+    // The parent (BackgroundEffects) already constrains sizing/positioning.
+    // container.style.position = container.style.position || 'relative';
+    // container.style.overflow = container.style.overflow || 'hidden';
 
     const webgl = new WebGLManager({
       $wrapper: container,
@@ -993,154 +1188,114 @@ export default function LiquidEther({
       autoIntensity,
       takeoverDuration,
       autoResumeDelay,
-      autoRampDuration
+      autoRampDuration,
     });
+
+    // expose webgl manager for external control and cleanup
     webglRef.current = webgl;
 
-    const applyOptionsFromProps = () => {
-      if (!webglRef.current) return;
-      const sim = webglRef.current.output?.simulation;
-      if (!sim) return;
-      const prevRes = sim.options.resolution;
-      Object.assign(sim.options, {
-        mouse_force: mouseForce,
-        cursor_size: cursorSize,
-        isViscous,
-        viscous,
-        iterations_viscous: iterationsViscous,
-        iterations_poisson: iterationsPoisson,
-        dt,
-        BFECC,
-        resolution,
-        isBounce
-      });
-      if (resolution !== prevRes) {
-        sim.resize();
-      }
-    };
-    applyOptionsFromProps();
+    // Throttle rendering during scroll/wheel to avoid occasional scroll "lock"/jank.
+    // Keep this extremely lightweight; overly-aggressive listeners (scroll/touchmove) can fire a lot.
+    const SCROLL_THROTTLE_FPS = 18;
+    const SCROLL_IDLE_MS = 100;
+    let scrollRafPending = false;
 
+    const onScroll = () => {
+      if (scrollRafPending) return;
+      scrollRafPending = true;
+      requestAnimationFrame(() => {
+        scrollRafPending = false;
+        const mgr = webglRef.current;
+        if (!mgr || typeof mgr.setThrottle !== 'function') return;
+        mgr.setThrottle(SCROLL_THROTTLE_FPS);
+        if (scrollTimeoutRef.current) clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = setTimeout(() => {
+          const mgr2 = webglRef.current;
+          if (mgr2 && typeof mgr2.setThrottle === 'function') mgr2.setThrottle(0);
+          scrollTimeoutRef.current = null;
+        }, SCROLL_IDLE_MS);
+      });
+    };
+
+    // Use passive listeners so we never block scroll.
+    // Prefer wheel (trackpad/mouse) and avoid scroll/touchmove, which can be extremely chatty.
+    window.addEventListener('wheel', onScroll, { passive: true });
+
+    // Apply props to the simulation and start rendering
+    if (typeof applyOptionsFromProps === 'function') applyOptionsFromProps();
+
+    // Start the RAF loop so the background renders continuously
     webgl.start();
 
-    // IntersectionObserver to pause rendering when not visible
-    const io = new IntersectionObserver(
-      entries => {
-        const entry = entries[0];
-        const isVisible = entry.isIntersecting && entry.intersectionRatio > 0;
-        isVisibleRef.current = isVisible;
-        if (!webglRef.current) return;
-        if (isVisible && !document.hidden) {
-          webglRef.current.start();
-        } else {
-          webglRef.current.pause();
-        }
-      },
-      { threshold: [0, 0.01, 0.1] }
-    );
-    io.observe(container);
-    intersectionObserverRef.current = io;
-
-    const ro = new ResizeObserver(() => {
-      if (!webglRef.current) return;
-      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
-      resizeRafRef.current = requestAnimationFrame(() => {
-        if (!webglRef.current) return;
-        webglRef.current.resize();
-      });
-    });
-    ro.observe(container);
-    resizeObserverRef.current = ro;
-
     return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      // Disconnect observers
       if (resizeObserverRef.current) {
-        try {
-          resizeObserverRef.current.disconnect();
-        } catch (e) {
-          void 0;
-        }
+        try { resizeObserverRef.current.disconnect(); } catch (e) { /* ignore */ }
+        resizeObserverRef.current = null;
       }
       if (intersectionObserverRef.current) {
-        try {
-          intersectionObserverRef.current.disconnect();
-        } catch (e) {
-          void 0;
-        }
+        try { intersectionObserverRef.current.disconnect(); } catch (e) { /* ignore */ }
+        intersectionObserverRef.current = null;
       }
-      if (webglRef.current) {
-        webglRef.current.dispose();
+
+      // Cancel RAF loop
+      if (rafRef.current) {
+        try { cancelAnimationFrame(rafRef.current); } catch (e) { /* ignore */ }
+        rafRef.current = null;
+      }
+
+      // Clear scroll debounce timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+        scrollTimeoutRef.current = null;
+      }
+
+      // Dispose webgl manager
+      if (webglRef.current && webglRef.current.dispose) {
+        try { webglRef.current.dispose(); } catch (e) { /* ignore */ }
       }
       webglRef.current = null;
+
+      // Remove scroll throttle listeners
+      try {
+        window.removeEventListener('wheel', onScroll);
+      } catch {}
     };
   }, [
-    BFECC,
-    cursorSize,
-    dt,
-    isBounce,
-    isViscous,
-    iterationsPoisson,
-    iterationsViscous,
     mouseForce,
-    resolution,
+    cursorSize,
+    isViscous,
     viscous,
+    iterationsViscous,
+    iterationsPoisson,
+    dt,
+    BFECC,
+    resolution,
+    isBounce,
     colors,
+    style,
+    className,
     autoDemo,
     autoSpeed,
     autoIntensity,
     takeoverDuration,
     autoResumeDelay,
-    autoRampDuration
+    autoRampDuration,
+    fixedWidthPx,
+    fixedHeightPx,
+    allowPointerInteraction,
+    onWebglError,
   ]);
 
-  useEffect(() => {
-    const webgl = webglRef.current;
-    if (!webgl) return;
-    const sim = webgl.output?.simulation;
-    if (!sim) return;
-    const prevRes = sim.options.resolution;
-    Object.assign(sim.options, {
-      mouse_force: mouseForce,
-      cursor_size: cursorSize,
-      isViscous,
-      viscous,
-      iterations_viscous: iterationsViscous,
-      iterations_poisson: iterationsPoisson,
-      dt,
-      BFECC,
-      resolution,
-      isBounce
-    });
-    if (webgl.autoDriver) {
-      webgl.autoDriver.enabled = autoDemo;
-      webgl.autoDriver.speed = autoSpeed;
-      webgl.autoDriver.resumeDelay = autoResumeDelay;
-      webgl.autoDriver.rampDurationMs = autoRampDuration * 1000;
-      if (webgl.autoDriver.mouse) {
-        webgl.autoDriver.mouse.autoIntensity = autoIntensity;
-        webgl.autoDriver.mouse.takeoverDuration = takeoverDuration;
-      }
-    }
-    if (resolution !== prevRes) {
-      sim.resize();
-    }
-  }, [
-    mouseForce,
-    cursorSize,
-    isViscous,
-    viscous,
-    iterationsViscous,
-    iterationsPoisson,
-    dt,
-    BFECC,
-    resolution,
-    isBounce,
-    autoDemo,
-    autoSpeed,
-    autoIntensity,
-    takeoverDuration,
-    autoResumeDelay,
-    autoRampDuration
-  ]);
-
-  return <div ref={mountRef} className={`liquid-ether-container ${className || ''}`} style={style} />;
+  return (
+    <div
+      ref={mountRef}
+      className={`liquid-ether-container ${className}`}
+      style={{
+        // if fixed pixels requested, force the mount element to that size so getBoundingClientRect is stable
+        ...(fixedWidthPx && fixedHeightPx ? { width: fixedWidthPx + 'px', height: fixedHeightPx + 'px' } : { width: '100%', height: '100%' }),
+        ...style
+      }}
+    />
+  );
 }
