@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Coding Portfolio
 
-## Getting Started
+Live site: **https://coding-portfolio00.vercel.app/**
 
-First, run the development server:
+This is my personal portfolio web app. I built it to showcase my experience, projects, and the tools I like working with, while also giving me a place to experiment with interactive UI and scroll-based motion.
+
+## What this site showcases
+
+- **Experience timeline** with scroll-driven animation
+- **Projects** section with highlights and links
+- **Skills & technologies** overview
+- **Contact form** backed by a Next.js API route (SMTP email)
+- **Custom visuals/motion** using GSAP + ScrollTrigger and my background effects components
+
+## How I built it
+
+- **Next.js (App Router)** for routing, server rendering, and API routes
+- **React** for the UI components
+- **Modular CSS** for styling and component-level layout
+- **GSAP + ScrollTrigger** for smooth section reveals and scroll-scrubbed animations
+- **Vercel** for deployment and preview builds
+
+## Run it locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Then open: http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment variables (contact form)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The contact API route (`app/api/contact/route.ts`) sends email through SMTP. Create a local `.env.local` (and **do not commit it**) with:
 
-## Learn More
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `CONTACT_TO`
+- `CONTACT_FROM`
 
-To learn more about Next.js, take a look at the following resources:
+## License / reuse
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+This is my personal portfolio. Feel free to use this repo for learning or inspiration, but please don’t impersonate me or copy the content verbatim.
