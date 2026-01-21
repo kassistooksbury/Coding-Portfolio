@@ -279,32 +279,70 @@
   letter-spacing: -1px;
   text-transform: uppercase;
   transition: color 0.3s ease;
-  display: inline-block;
   text-decoration: none;
-  padding-right: 1.4em;
+  /* changed: allow layout control */
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  padding-right: 0;
 }
 
-.sm-panel-item:hover {
-  color: var(--sm-accent, #5227FF);
-}
-
-.sm-panel-list[data-numbering] {
-  counter-reset: smItem;
-}
-
+/* Number pill (desktop/tablet default) */
 .sm-panel-list[data-numbering] .sm-panel-item::after {
   counter-increment: smItem;
   content: counter(smItem, decimal-leading-zero);
-  position: absolute;
-  top: 0.1em;
-  right: 2.8em;
+  /* changed: participate in flex layout instead of absolute positioning */
+  position: static;
+  order: -1;
   font-size: 18px;
-  font-weight: 400;
+  font-weight: 500;
   color: var(--sm-accent, #5227FF);
   letter-spacing: 0;
   pointer-events: none;
   user-select: none;
   opacity: var(--sm-num-opacity, 0);
+  flex: 0 0 auto;
+  min-width: 2.2ch;
+}
+
+/* Wrap the label text so flex doesn't collapse it */
+.sm-panel-itemLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+
+  .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+
+  .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
+
+  /* On phones, keep number left + label right with consistent spacing */
+  .sm-panel-item {
+    gap: 0.6rem;
+  }
+
+  .sm-panel-list[data-numbering] .sm-panel-item::after {
+    font-size: 14px;
+    transform: translateY(0.15em);
+  }
 }
 
 /* Backdrop that dims the page when the menu is open */
@@ -349,28 +387,4 @@
 .sm-resume:focus-visible {
   outline: 2px solid rgba(255, 255, 255, 0.5);
   outline-offset: 4px;
-}
-
-@media (max-width: 1024px) {
-  .staggered-menu-panel {
-    width: 100%;
-    left: 0;
-    right: 0;
-  }
-
-  .staggered-menu-wrapper[data-open] .sm-logo-img {
-    filter: invert(100%);
-  }
-}
-
-@media (max-width: 640px) {
-  .staggered-menu-panel {
-    width: 100%;
-    left: 0;
-    right: 0;
-  }
-
-  .staggered-menu-wrapper[data-open] .sm-logo-img {
-    filter: invert(100%);
-  }
 }
